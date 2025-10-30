@@ -1,0 +1,24 @@
+L'horloge est initialisée
+Les deux bus spi et les deux can sont initialisés.
+la zone flash est initialisée.
+fil 1 :
+La carte interroge le bus des batteries.
+Les informations sont inscrites dans la flash.
+la carte attend.
+
+
+fil 2: 
+délai;
+diffuse info batteries sur nmea2000
+
+fil 3: 
+bluetooth ?
+
+fil 4: 
+commande par l'uart: 
+un terminal pour appeler des fonctions
+
+fil 5: 
+point d'accès wifi
+serveur
+affichage des dernières infos

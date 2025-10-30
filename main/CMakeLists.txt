@@ -1,0 +1,3 @@
+idf_component_register(SRCS main.c
+  PRIV_REQUIRES esp_event nvs_flash esp_wifi esp_http_server dns_server json mcp2515 led rtc mcp251863
+                       EMBED_FILES root.html)
