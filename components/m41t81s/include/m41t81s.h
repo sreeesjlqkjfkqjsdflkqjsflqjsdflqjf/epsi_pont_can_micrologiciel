@@ -1,6 +1,6 @@
 #include "driver/i2c_master.h"
 #include <stdint.h>
-
+#include <time.h>
 // i2c
 #define RTC_ADDR 0x68
 #define I2C_MASTER_SCL_IO 2       /*!< GPIO number used for I2C master clock */
@@ -20,10 +20,9 @@
 #define rtc_month_reg 0x06
 #define rtc_year_reg 0x07
 
-extern i2c_master_bus_handle_t bus_handle;
-extern i2c_master_dev_handle_t rtc_handle;
+extern struct tm flash_time;
 
-void rtc_init();
-uint8_t rtc_getPartSeconds();
-uint8_t rtc_getSeconds();
-uint8_t rtc_getMinutes();
+void m41t81s_init();
+void m41t81s_reset();
+void m41t81s_getTime(struct tm *now);
+void m41t81s_setTime(struct tm *now);

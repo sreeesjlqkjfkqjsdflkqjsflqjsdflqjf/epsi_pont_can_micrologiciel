@@ -16,6 +16,7 @@
 
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "freertos/idf_additions.h"
 #include "lwip/inet.h"
 #include "nvs_flash.h"
 
@@ -26,6 +27,7 @@
 #include "esp_chip_info.h"
 
 #include "led.h"
+#include "m41t81s.h"
 #include "mcp251863.h"
 
 #define EXAMPLE_ESP_WIFI_SSID CONFIG_ESP_WIFI_SSID
@@ -34,6 +36,7 @@
 extern const char root_start[] asm("_binary_root_html_start");
 extern const char root_end[] asm("_binary_root_html_end");
 static const char *TAG = "example";
+struct tm now;
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -187,8 +190,26 @@ void app_main(void) {
   LED_init(&led_rouge);
   LED_toggle(&led_rouge);
   LED_toggle(&led_verte);
-  vTaskDelay(1000); // check freertos tickrate for make this delay 1 second
+  vTaskDelay(100); // check freertos tickrate for make this delay 1 second
   LED_toggle(&led_rouge);
+  LED_toggle(&led_verte);
+  m41t81s_init();
+  m41t81s_reset();
+  while (1) {
+    LED_toggle(&led_rouge);
+    LED_toggle(&led_verte);
+    m41t81s_getTime(&now);
+    printf("min : %i , sec : %i\n", now.tm_min, now.tm_sec);
+    vTaskDelay(100);
+  }
+
+  int ret = ConfigureMCP251XFDDeviceOnCAN_EPSI();
+  if (ret) {
+    LED_toggle(&led_rouge);
+  } else {
+    LED_toggle(&led_verte);
+  }
+  printf("pas content : %i", ret);
 
   /*
       Turn of warnings from HTTP server as redirecting traffic will yield

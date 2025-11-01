@@ -1,7 +1,23 @@
-#include "rtc.h"
+#include "m41t81s.h"
 #include "esp_err.h"
+#include <stdio.h>
 
-void func(void) {}
+static i2c_master_bus_handle_t bus_handle;
+static i2c_master_dev_handle_t rtc_handle;
+struct tm flash_time = {.tm_sec = 0,
+                        .tm_min = 10,
+                        .tm_hour = 23,
+                        .tm_mday = 1,
+                        .tm_mon = 11,
+                        .tm_year = 2025,
+                        .tm_wday = 7};
+static uint8_t m41t81s_getSeconds();
+static uint8_t m41t81s_getMinutes();
+static uint8_t m41t81s_getHours();
+static uint8_t m41t81s_getDate();
+static uint8_t m41t81s_getDayOfWeek();
+static uint8_t m41t81s_getMonth();
+static uint8_t m41t81s_getYear();
 
 uint8_t bcdToDec(uint8_t bcd) { return (bcd & 0x0F) + ((bcd >> 4) * 10); }
 
@@ -30,56 +46,84 @@ static void i2c_master_init(i2c_master_bus_handle_t *bus_handle,
   ESP_ERROR_CHECK(
       i2c_master_bus_add_device(*bus_handle, &dev_config, dev_handle));
 }
-void rtc_init() { i2c_master_init(&bus_handle, &rtc_handle); }
+void m41t81s_init() { i2c_master_init(&bus_handle, &rtc_handle); }
+
+// lecture des registres
 static esp_err_t rtc_register_read(uint8_t reg_addr, uint8_t *data,
                                    size_t len) {
   return i2c_master_transmit_receive(rtc_handle, &reg_addr, 1, data, len,
                                      I2C_MASTER_TIMEOUT_MS);
 }
 
-uint8_t rtc_getPartSeconds() {
+static esp_err_t rtc_register_write_byte(i2c_master_dev_handle_t dev_handle,
+                                         uint8_t reg_addr, uint8_t data) {
+  uint8_t write_buf[2] = {reg_addr, data};
+  return i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf),
+                             I2C_MASTER_TIMEOUT_MS);
+}
+void m41t81s_reset() {
+  rtc_register_write_byte(rtc_handle, 0x0C, 0);
+  rtc_register_write_byte(rtc_handle, rtc_seconds_reg, 0);
+}
+
+void m41t81s_getTime(struct tm *now) {
+
+  now->tm_sec = m41t81s_getSeconds();
+  now->tm_min = m41t81s_getMinutes(); /* Minutes. [0-59]      */
+  now->tm_hour = m41t81s_getHours();
+  now->tm_mday = m41t81s_getDate();
+  now->tm_mon = m41t81s_getMonth();
+  now->tm_year = m41t81s_getYear();
+  now->tm_wday = m41t81s_getDayOfWeek();
+  now->tm_yday = m41t81s_getYear();
+}
+static uint8_t m41t81s_getPartSeconds() {
   uint8_t psecs;
   ESP_ERROR_CHECK(rtc_register_read(rtc_pseconds_reg, &psecs, 1));
   return (psecs & 0x0F) + (((psecs >> 4) & 0x0F) * 10);
 }
 
-uint8_t rtc_getSeconds() {
+static uint8_t m41t81s_getSeconds() {
   uint8_t sec;
   ESP_ERROR_CHECK(rtc_register_read(rtc_seconds_reg, &sec, 1));
   return bcdToDec(sec & 0x7F);
 }
 
-uint8_t rtc_getMinutes() {
+static uint8_t m41t81s_getMinutes() {
   uint8_t min;
   ESP_ERROR_CHECK(rtc_register_read(rtc_minutes_reg, &min, 1));
   return bcdToDec(min & 0x7F);
 }
-/*
-uint8_t rtc_getHours() {
-  uint8_t hr = readRegister(rtc_hours_reg);
+uint8_t m41t81s_getHours() {
+  uint8_t hr;
+  ESP_ERROR_CHECK(rtc_register_read(rtc_hours_reg, &hr, 1));
   return bcdToDec(hr & 0x3F);
 }
 
-uint8_t rtc_getDayOfWeek() {
-  uint8_t day = readRegister(rtc_dow_reg);
+uint8_t m41t81s_getDayOfWeek() {
+  uint8_t day;
+  ESP_ERROR_CHECK(rtc_register_read(rtc_dow_reg, &day, 1));
   return bcdToDec(day & 0x07);
 }
 
-uint8_t rtc_getDate() {
-  uint8_t date = readRegister(rtc_date_reg);
+uint8_t m41t81s_getDate() {
+  uint8_t date;
+  ESP_ERROR_CHECK(rtc_register_read(rtc_date_reg, &date, 1));
   return bcdToDec(date & 0x3F);
 }
 
-uint8_t rtc_getMonth() {
-  uint8_t month = readRegister(rtc_month_reg);
+uint8_t m41t81s_getMonth() {
+  uint8_t month;
+  ESP_ERROR_CHECK(rtc_register_read(rtc_month_reg, &month, 1));
   return bcdToDec(month & 0x1F);
 }
 
-uint8_t rtc_getYear() {
-  uint8_t year = readRegister(rtc_year_reg);
+uint8_t m41t81s_getYear() {
+  uint8_t year;
+  ESP_ERROR_CHECK(rtc_register_read(rtc_year_reg, &year, 1));
   return bcdToDec(year);
 }
-
+/*
 void rtc_setSeconds(uint8_t secs) {
   Wire.beginTransmission(RTC_ADDR);
   Wire.write(rtc_seconds_reg);

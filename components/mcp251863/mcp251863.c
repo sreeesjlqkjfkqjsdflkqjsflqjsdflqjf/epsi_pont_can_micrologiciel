@@ -62,9 +62,7 @@ eERRORRESULT SPI_Init_EPSI(void *pIntDev, uint8_t chipSelect,
   ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
   ESP_ERROR_CHECK(ret);
 
-  printf("epsi bus init passée!\n\r");
-
-  // Add MCP2515 SPI device to the bus
+  // Add mcp251863 SPI device to the bus
   ret =
       spi_bus_add_device(SPI2_HOST, &dev_cfg, (spi_device_handle_t *)&pIntDev);
   ESP_ERROR_CHECK(ret);
@@ -133,3 +131,36 @@ MCP251XFD_Config MCP2517FD_EPSI_Config = {
     //--- Interrupts ---
     .SysInterruptFlags = MCP251XFD_INT_NO_EVENT,
 };
+
+//=============================================================================
+// Configure the MCP251XFD device on EXT1
+//=============================================================================
+eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void) {
+  //--- Initialize Int pins or GPIOs ---
+  //--- Configure module on Ext1 ---
+  eERRORRESULT ErrorExt1 = ERR__NO_DEVICE_DETECTED;
+  ErrorExt1 = Init_MCP251XFD(&MCP251XFD_EPSI, &MCP2517FD_EPSI_Config);
+  if (ErrorExt1 != ERR_OK) {
+    printf("tchoupi : %i", ErrorExt1);
+    return ErrorExt1;
+  }
+  ErrorExt1 = MCP251XFD_ConfigureTimeStamp(
+      &MCP251XFD_EPSI, false, MCP251XFD_TS_CAN20_SOF_CANFD_SOF, 0, false);
+  if (ErrorExt1 != ERR_OK) {
+    printf("trotro");
+    return ErrorExt1;
+  }
+  /*
+  ErrorExt1 = MCP251XFD_ConfigureFIFOList(CANEXT1, &MCP2517FD_Ext1_FIFOlist[0],
+                                          MCP2517FD_EXT1_FIFO_COUNT);
+  if (ErrorExt1 != ERR_OK)
+    return ErrorExt1;
+  ErrorExt1 = MCP251XFD_ConfigureFilterList(
+      CANEXT1, MCP251XFD_D_NET_FILTER_DISABLE, &MCP2517FD_Ext1_FilterList[0],
+      MCP2517FD_EXT1_FILTER_COUNT);
+  if (ErrorExt1 != ERR_OK)
+    return ErrorExt1;
+  ErrorExt1 = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
+  */
+  return ErrorExt1;
+}

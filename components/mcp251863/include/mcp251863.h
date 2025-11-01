@@ -17,8 +17,8 @@
 #define CAN_EPSI_INT 39
 
 extern MCP251XFD MCP251XFD_EPSI;
-#define CANEPSI &MCP251XFD_EPSI
 
 extern MCP251XFD_BitTimeStats MCP2517FD_EPSI_BTStats;
 extern uint32_t SYSCLK_EPSI;
 extern MCP251XFD_Config MCP2517FD_EPSI_Config;
+extern eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void);
