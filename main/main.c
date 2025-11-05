@@ -26,6 +26,7 @@
 #include "cJSON.h"
 #include "esp_chip_info.h"
 
+#include "battery_data.h"
 #include "led.h"
 #include "m41t81s.h"
 #include "mcp251863.h"
@@ -37,6 +38,16 @@ extern const char root_start[] asm("_binary_root_html_start");
 extern const char root_end[] asm("_binary_root_html_end");
 static const char *TAG = "example";
 struct tm now;
+struct battery_detailed_data bat_1 = {
+    .address = 0x1,
+    .state_of_health = 255,
+    .terminal_current = 30E3,
+    .internal_voltage = 60E3,
+    .remaining_capacity = 60E3,
+    .state_of_charge = 250,
+    .charging_voltage = 60E3,
+    .charging_current = 60E3,
+};
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -127,6 +138,7 @@ static esp_err_t root_get_handler(httpd_req_t *req) {
 
 /* Simple handler for getting system handler */
 static esp_err_t system_info_get_handler(httpd_req_t *req) {
+  ESP_LOGI(TAG, "Serve system_info");
   httpd_resp_set_type(req, "application/json");
   cJSON *root = cJSON_CreateObject();
   esp_chip_info_t chip_info;
@@ -146,11 +158,37 @@ static const httpd_uri_t root = {
 
 /* URI handler for fetching system info */
 httpd_uri_t system_info_get_uri = {
-    .uri = "/api/v1/system/info",
+    .uri = "/api/system_info",
     .method = HTTP_GET,
     .handler = system_info_get_handler,
     //.user_ctx = rest_context
 };
+
+/* Simple handler for getting battery handler */
+static esp_err_t battery_info_get_handler(httpd_req_t *req) {
+
+  ESP_LOGI(TAG, "Serve battery_info");
+  m41t81s_getTime(&now);
+  httpd_resp_set_type(req, "application/json");
+  cJSON *root = cJSON_CreateObject();
+  char update_time[16];
+  snprintf(update_time, 16, "%i:%i", now.tm_min, now.tm_sec);
+  cJSON_AddStringToObject(root, "time", update_time);
+  battery_to_json(&bat_1, root);
+  const char *sys_info = cJSON_Print(root);
+  httpd_resp_sendstr(req, sys_info);
+  free((void *)sys_info);
+  cJSON_Delete(root);
+  return ESP_OK;
+}
+/* URI handler for fetching battery info */
+httpd_uri_t battery_info_get_uri = {
+    .uri = "/api/battery_info",
+    .method = HTTP_GET,
+    .handler = battery_info_get_handler,
+    //.user_ctx = rest_context
+};
+
 // HTTP Error (404) Handler - Redirects all requests to the root page
 esp_err_t http_404_error_handler(httpd_req_t *req, httpd_err_code_t err) {
   // Set status
@@ -178,6 +216,7 @@ static httpd_handle_t start_webserver(void) {
     ESP_LOGI(TAG, "Registering URI handlers");
     httpd_register_uri_handler(server, &root);
     httpd_register_uri_handler(server, &system_info_get_uri);
+    httpd_register_uri_handler(server, &battery_info_get_uri);
     httpd_register_err_handler(server, HTTPD_404_NOT_FOUND,
                                http_404_error_handler);
   }
@@ -190,27 +229,25 @@ void app_main(void) {
   LED_init(&led_rouge);
   LED_toggle(&led_rouge);
   LED_toggle(&led_verte);
-  vTaskDelay(100); // check freertos tickrate for make this delay 1 second
+  vTaskDelay(600); // check freertos tickrate for make this delay 1 second
   LED_toggle(&led_rouge);
   LED_toggle(&led_verte);
-  m41t81s_init();
-  m41t81s_reset();
-  while (1) {
-    LED_toggle(&led_rouge);
-    LED_toggle(&led_verte);
-    m41t81s_getTime(&now);
-    printf("min : %i , sec : %i\n", now.tm_min, now.tm_sec);
-    vTaskDelay(100);
-  }
+  // m41t81s_init();
+  // m41t81s_reset();
 
+  ESP_LOGI(TAG, "MAIS PK ????");
   int ret = ConfigureMCP251XFDDeviceOnCAN_EPSI();
   if (ret) {
     LED_toggle(&led_rouge);
   } else {
     LED_toggle(&led_verte);
   }
-  printf("pas content : %i", ret);
-
+  ESP_LOGI(TAG, "sysclk_epsi : %lu\n", SYSCLK_EPSI);
+  ESP_LOGI(TAG, "ret : %i\n", ret);
+  while (1) {
+    LED_toggle(&led_verte);
+    vTaskDelay(100);
+  }
   /*
       Turn of warnings from HTTP server as redirecting traffic will yield
       lots of invalid requests

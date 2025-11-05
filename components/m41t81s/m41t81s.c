@@ -77,11 +77,12 @@ void m41t81s_getTime(struct tm *now) {
   now->tm_wday = m41t81s_getDayOfWeek();
   now->tm_yday = m41t81s_getYear();
 }
-static uint8_t m41t81s_getPartSeconds() {
-  uint8_t psecs;
-  ESP_ERROR_CHECK(rtc_register_read(rtc_pseconds_reg, &psecs, 1));
-  return (psecs & 0x0F) + (((psecs >> 4) & 0x0F) * 10);
-}
+// disabled because likely useless
+// static uint8_t m41t81s_getPartSeconds() {
+//   uint8_t psecs;
+//   ESP_ERROR_CHECK(rtc_register_read(rtc_pseconds_reg, &psecs, 1));
+//   return (psecs & 0x0F) + (((psecs >> 4) & 0x0F) * 10);
+// }
 
 static uint8_t m41t81s_getSeconds() {
   uint8_t sec;

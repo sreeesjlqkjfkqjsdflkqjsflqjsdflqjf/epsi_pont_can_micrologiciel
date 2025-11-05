@@ -1,5 +1,6 @@
 #include "mcp251863.h"
 #include "MCP251XFD.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 #include "hal/spi_types.h"
 #include <stdint.h>
@@ -41,6 +42,7 @@ uint32_t getcurrentms() { return esp_timer_get_time() / 1000; }
 eERRORRESULT SPI_Init_EPSI(void *pIntDev, uint8_t chipSelect,
                            const uint32_t sckFreq) {
 
+  printf("spi_init v1début\n");
   esp_err_t ret;
   // Configuration for the SPI bus
   spi_bus_config_t bus_cfg = {
@@ -53,33 +55,36 @@ eERRORRESULT SPI_Init_EPSI(void *pIntDev, uint8_t chipSelect,
   };
 
   // Define MCP2515 SPI device configuration
-  spi_device_interface_config_t dev_cfg = {.mode = 0,                 // (0,0)
-                                           .clock_speed_hz = sckFreq, // 4 mhz
-                                           .spics_io_num = chipSelect,
-                                           .queue_size = 1024};
+  spi_device_interface_config_t dev_cfg = {
+      .mode = 0,                 // (0,0)
+      .clock_speed_hz = sckFreq, // 4 mhz
+      .spics_io_num = chipSelect,
+      .queue_size = 1024,
+
+  };
 
   // Initialize SPI bus
-  ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+  ret = spi_bus_initialize(SPI3_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
   ESP_ERROR_CHECK(ret);
 
   // Add mcp251863 SPI device to the bus
   ret =
-      spi_bus_add_device(SPI2_HOST, &dev_cfg, (spi_device_handle_t *)&pIntDev);
+      spi_bus_add_device(SPI3_HOST, &dev_cfg, (spi_device_handle_t *)&pIntDev);
   ESP_ERROR_CHECK(ret);
 
-  return true;
-
+  // return true;
+  printf("spi_init v1\n");
   return 0;
 }
 eERRORRESULT SPI_Transfer_EPSI(void *pIntDev, uint8_t chipSelect,
                                uint8_t *txData, uint8_t *rxData, size_t size) {
   spi_transaction_t trans = {};
 
-  trans.length = size;
+  trans.length = size * 8;
   trans.rx_buffer = rxData;
   trans.tx_buffer = txData;
 
-  esp_err_t ret = spi_device_transmit(pIntDev, &trans);
+  esp_err_t ret = spi_device_polling_transmit(pIntDev, &trans);
   if (ret != ESP_OK) {
     printf("spi_device_transmit failed\n");
   }
@@ -103,7 +108,7 @@ MCP251XFD MCP251XFD_EPSI = {
     //--- CRC16-CMS call function ---
     .fnComputeCRC16 = NULL,
     //--- Interface clocks ---
-    .SPIClockSpeed = 17000000, // 17MHz
+    .SPIClockSpeed = 1000000, // 17MHz
 };
 
 MCP251XFD_BitTimeStats MCP2517FD_EPSI_BTStats;
@@ -111,7 +116,6 @@ uint32_t SYSCLK_EPSI;
 MCP251XFD_Config MCP2517FD_EPSI_Config = {
     //--- Controller clocks ---
     .XtalFreq = 40000000, // CLKIN is a 40MHz quartz
-    // CLKIN is not a crystal
     .OscFreq = 0,
     .SysclkConfig = MCP251XFD_SYSCLK_IS_CLKIN,
     .ClkoPinConfig = MCP251XFD_CLKO_SOF,
@@ -141,13 +145,13 @@ eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void) {
   eERRORRESULT ErrorExt1 = ERR__NO_DEVICE_DETECTED;
   ErrorExt1 = Init_MCP251XFD(&MCP251XFD_EPSI, &MCP2517FD_EPSI_Config);
   if (ErrorExt1 != ERR_OK) {
-    printf("tchoupi : %i", ErrorExt1);
+    printf("tchoupi : %i\n", ErrorExt1);
     return ErrorExt1;
   }
   ErrorExt1 = MCP251XFD_ConfigureTimeStamp(
       &MCP251XFD_EPSI, false, MCP251XFD_TS_CAN20_SOF_CANFD_SOF, 0, false);
   if (ErrorExt1 != ERR_OK) {
-    printf("trotro");
+    printf("trotro\n");
     return ErrorExt1;
   }
   /*

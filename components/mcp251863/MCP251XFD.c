@@ -87,9 +87,10 @@ eERRORRESULT Init_MCP251XFD(MCP251XFD *pComp, const MCP251XFD_Config *pConf) {
         pComp->SPIClockSpeed); // Initialize the SPI interface only in case of
                                // no safe reset (the interface will be
                                // initialized in the reset at a safe speed)
-    if (Error != ERR_OK)
+    if (Error != ERR_OK) {
       return Error; // If there is an error while calling fnSPI_Init() then
-                    // return the error
+    }
+    // return the error
   }
 
   //--- Reset -----------------------------------------------
@@ -207,8 +208,8 @@ eERRORRESULT Init_MCP251XFD(MCP251XFD *pComp, const MCP251XFD_Config *pConf) {
   }
 
   //--- Check which MCP251XFD it is ------------------------- // Since the DEVID
-  //register return the same value for MCP2517FD and MCP2518FD, this driver use
-  //the OSC.LPMEN to check which one it is
+  // register return the same value for MCP2517FD and MCP2518FD, this driver use
+  // the OSC.LPMEN to check which one it is
   Error = MCP251XFD_ReadSFR8(pComp, RegMCP251XFD_OSC_CONFIG,
                              &Config); // Read current OSC config mode
   if (Error != ERR_NONE)
@@ -445,7 +446,7 @@ eERRORRESULT MCP251XFD_ReadData(MCP251XFD *pComp, uint16_t address,
         (size > Increment ? Increment : size); // Define byte count to send
 
     //--- If needed, set 0x00 byte while reading data on SPI interface else send
-    //garbage data ---
+    // garbage data ---
     if ((pComp->DriverConfig & MCP251XFD_DRIVER_CLEAR_BUFFER_BEFORE_READ) > 0) {
       const size_t BuffUsedSize =
           ByteCount +
@@ -3408,15 +3409,16 @@ eERRORRESULT MCP251XFD_ResetDevice(MCP251XFD *pComp) {
     if (pComp->fnGetCurrentms == NULL)
       return ERR__PARAMETER_ERROR;
 #endif
-
+    // tbu : desactive le changement de fréquence
     // Set SPI speed to 1MHz
-    Error = pComp->fnSPI_Init(
-        pComp->InterfaceDevice, pComp->SPI_ChipSelect,
-        MCP251XFD_DRIVER_SAFE_RESET_SPI_CLK); // Set the SPI speed clock to 1MHz
-                                              // (safe clock speed)
-    if (Error != ERR_OK)
-      return Error; // If there is an error while reading the register then
-                    // return the error
+    // Error = pComp->fnSPI_Init(
+    //     pComp->InterfaceDevice, pComp->SPI_ChipSelect,
+    //     MCP251XFD_DRIVER_SAFE_RESET_SPI_CLK); // Set the SPI speed clock to
+    //     1MHz
+    //                                           // (safe clock speed)
+    // if (Error != ERR_OK)
+    // return Error; // If there is an error while reading the register then
+    // return the error
 
     // Request configuration mode to avoid transmission error without aborting
     // them
