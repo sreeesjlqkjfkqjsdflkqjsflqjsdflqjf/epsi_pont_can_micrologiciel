@@ -15,6 +15,7 @@
 
 //-----------------------------------------------------------------------------
 #include "MCP251XFD.h"
+#include <stdint.h>
 //-----------------------------------------------------------------------------
 #ifdef __cplusplus
 #include <cstdint>
@@ -93,8 +94,14 @@ eERRORRESULT Init_MCP251XFD(MCP251XFD *pComp, const MCP251XFD_Config *pConf) {
     // return the error
   }
 
+  // uint8_t envoie[2] = {0b00110000, 0b00000000};
+  // uint8_t resultat[4] = {0, 0, 0, 0};
+  // pComp->fnSPI_Transfer(pComp->InterfaceDevice, pComp->DriverConfig, envoie,
+  //                       resultat, 6);
   //--- Reset -----------------------------------------------
+
   Error = MCP251XFD_ResetDevice(pComp); // Reset the device
+  //
   if (Error != ERR_NONE)
     return Error; // If there is an error while calling MCP251XFD_ResetDevice()
                   // then return the error

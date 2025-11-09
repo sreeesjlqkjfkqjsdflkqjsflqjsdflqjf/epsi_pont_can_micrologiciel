@@ -229,21 +229,19 @@ void app_main(void) {
   LED_init(&led_rouge);
   LED_toggle(&led_rouge);
   LED_toggle(&led_verte);
-  vTaskDelay(600); // check freertos tickrate for make this delay 1 second
+  vTaskDelay(200); // check freertos tickrate for make this delay 1 second
   LED_toggle(&led_rouge);
   LED_toggle(&led_verte);
   // m41t81s_init();
   // m41t81s_reset();
 
-  ESP_LOGI(TAG, "MAIS PK ????");
   int ret = ConfigureMCP251XFDDeviceOnCAN_EPSI();
   if (ret) {
     LED_toggle(&led_rouge);
   } else {
     LED_toggle(&led_verte);
   }
-  ESP_LOGI(TAG, "sysclk_epsi : %lu\n", SYSCLK_EPSI);
-  ESP_LOGI(TAG, "ret : %i\n", ret);
+  ESP_LOGI(TAG, "ConfigureMCP251XFDDeviceOnCAN_EPSI return : %i\n", ret);
   while (1) {
     LED_toggle(&led_verte);
     vTaskDelay(100);

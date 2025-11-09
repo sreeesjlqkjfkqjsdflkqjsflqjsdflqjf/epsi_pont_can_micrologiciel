@@ -11,8 +11,8 @@
 #define CAN_NMEA_INT 38
 
 #define CAN_EPSI_CS 21
-#define CAN_EPSI_MISO 47
-#define CAN_EPSI_MOSI 48
+#define CAN_EPSI_MISO 9
+#define CAN_EPSI_MOSI 46
 #define CAN_EPSI_CLK 45
 #define CAN_EPSI_INT 39
 

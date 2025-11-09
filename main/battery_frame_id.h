@@ -1,0 +1,1 @@
+#define Battery_keep_alive_frame 0x0002100
