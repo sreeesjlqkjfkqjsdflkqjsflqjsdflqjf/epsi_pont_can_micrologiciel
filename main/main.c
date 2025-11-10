@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <sys/param.h>
 
+#include "MCP251XFD.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mac.h"
@@ -227,14 +228,10 @@ void app_main(void) {
 
   LED_init(&led_verte);
   LED_init(&led_rouge);
-  LED_toggle(&led_rouge);
-  LED_toggle(&led_verte);
-  vTaskDelay(200); // check freertos tickrate for make this delay 1 second
-  LED_toggle(&led_rouge);
-  LED_toggle(&led_verte);
   // m41t81s_init();
   // m41t81s_reset();
 
+  vTaskDelay(200);
   int ret = ConfigureMCP251XFDDeviceOnCAN_EPSI();
   if (ret) {
     LED_toggle(&led_rouge);
@@ -243,7 +240,13 @@ void app_main(void) {
   }
   ESP_LOGI(TAG, "ConfigureMCP251XFDDeviceOnCAN_EPSI return : %i\n", ret);
   while (1) {
-    LED_toggle(&led_verte);
+    ret = TransmitMessageToEPSI();
+    ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
+    if (ret) {
+      LED_toggle(&led_rouge);
+    } else {
+      LED_toggle(&led_verte);
+    }
     vTaskDelay(100);
   }
   /*

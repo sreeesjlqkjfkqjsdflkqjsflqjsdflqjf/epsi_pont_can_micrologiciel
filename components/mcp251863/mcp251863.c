@@ -191,6 +191,27 @@ MCP251XFD MCP251XFD_EPSI = {
     .SPIClockSpeed = 2E6, // 17MHz
 };
 
+spi_device_handle_t can_nmea_dev_handle;
+MCP251XFD MCP251XFD_NMEA = {
+    .UserDriverData = NULL,
+    //--- Driver configuration ---
+    .DriverConfig = MCP251XFD_DRIVER_NORMAL_USE,
+    //--- IO configuration ---
+    .GPIOsOutLevel = MCP251XFD_GPIO0_LOW | MCP251XFD_GPIO1_LOW,
+    //--- Interface driver call functions ---
+    .SPI_ChipSelect =
+        CAN_EPSI_CS, // Here the chip select of the EXT1 interface is 1
+    .InterfaceDevice = &can_epsi_dev_handle,
+    // Here this point to the address memory of the peripheral SPI0
+    .fnSPI_Init = SPI_Init_NMEA,
+    .fnSPI_Transfer = SPI_Transfer,
+    //--- Time call function ---
+    .fnGetCurrentms = getcurrentms,
+    //--- CRC16-CMS call function ---
+    .fnComputeCRC16 = NULL,
+    //--- Interface clocks ---
+    .SPIClockSpeed = 2E6, // 17MHz
+};
 MCP251XFD_BitTimeStats MCP2517FD_EPSI_BTStats;
 uint32_t SYSCLK_EPSI;
 MCP251XFD_Config MCP2517FD_EPSI_Config = {
@@ -215,37 +236,107 @@ MCP251XFD_Config MCP2517FD_EPSI_Config = {
     //--- Interrupts ---
     .SysInterruptFlags = MCP251XFD_INT_NO_EVENT,
 };
-
+MCP251XFD_RAMInfos EPSI_TEF_RAMInfos;
+MCP251XFD_RAMInfos EPSI_TXQ_RAMInfos;
+MCP251XFD_RAMInfos EPSI_FIFOs_RAMInfos[MCP2517FD_EPSI_FIFO_COUNT - 2];
+MCP251XFD_FIFO MCP2517FD_EPSI_FIFOlist[MCP2517FD_EPSI_FIFO_COUNT] = {
+    {
+        .Name = MCP251XFD_TEF,
+        .Size = MCP251XFD_FIFO_10_MESSAGE_DEEP,
+        .ControlFlags = MCP251XFD_FIFO_ADD_TIMESTAMP_ON_OBJ,
+        .InterruptFlags = MCP251XFD_FIFO_OVERFLOW_INT +
+                          MCP251XFD_FIFO_EVENT_FIFO_NOT_EMPTY_INT,
+        .RAMInfos = &EPSI_TEF_RAMInfos,
+    },
+    {
+        .Name = MCP251XFD_TXQ,
+        .Size = MCP251XFD_FIFO_4_MESSAGE_DEEP,
+        .Payload = MCP251XFD_PAYLOAD_64BYTE,
+        .Attempts = MCP251XFD_THREE_ATTEMPTS,
+        .Priority = MCP251XFD_MESSAGE_TX_PRIORITY16,
+        .ControlFlags = MCP251XFD_FIFO_NO_RTR_RESPONSE,
+        .InterruptFlags = MCP251XFD_FIFO_TX_ATTEMPTS_EXHAUSTED_INT +
+                          MCP251XFD_FIFO_TRANSMIT_FIFO_NOT_FULL_INT,
+        .RAMInfos = &EPSI_TXQ_RAMInfos,
+    },
+    {
+        .Name = MCP251XFD_FIFO1,
+        .Size = MCP251XFD_FIFO_4_MESSAGE_DEEP,
+        .Payload = MCP251XFD_PAYLOAD_64BYTE,
+        .Direction = MCP251XFD_RECEIVE_FIFO,
+        .ControlFlags = MCP251XFD_FIFO_ADD_TIMESTAMP_ON_RX,
+        .InterruptFlags = MCP251XFD_FIFO_OVERFLOW_INT +
+                          MCP251XFD_FIFO_RECEIVE_FIFO_NOT_EMPTY_INT,
+        .RAMInfos = &EPSI_FIFOs_RAMInfos[0],
+    }, // SID: 0x000..0x1FF ; No EID
+    {
+        .Name = MCP251XFD_FIFO2,
+        .Size = MCP251XFD_FIFO_4_MESSAGE_DEEP,
+        .Payload = MCP251XFD_PAYLOAD_64BYTE,
+        .Direction = MCP251XFD_TRANSMIT_FIFO,
+        .Attempts = MCP251XFD_THREE_ATTEMPTS,
+        .Priority = MCP251XFD_MESSAGE_TX_PRIORITY16,
+        .ControlFlags = MCP251XFD_FIFO_NO_RTR_RESPONSE,
+        .InterruptFlags = MCP251XFD_FIFO_TX_ATTEMPTS_EXHAUSTED_INT +
+                          MCP251XFD_FIFO_TRANSMIT_FIFO_NOT_FULL_INT,
+        .RAMInfos = &EPSI_FIFOs_RAMInfos[1],
+    },
+};
 //=============================================================================
-// Configure the MCP251XFD device on EXT1
+// Configure the MCP251863 device on EPSI
 //=============================================================================
 eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void) {
   //--- Initialize Int pins or GPIOs ---
-  //--- Configure module on Ext1 ---
-  eERRORRESULT ErrorExt1 = ERR__NO_DEVICE_DETECTED;
-  ErrorExt1 = Init_MCP251XFD(&MCP251XFD_EPSI, &MCP2517FD_EPSI_Config);
-  if (ErrorExt1 != ERR_OK) {
-    return ErrorExt1;
+  //--- Configure module on EPSI ---
+  eERRORRESULT ErrorEPSI = ERR__NO_DEVICE_DETECTED;
+  ErrorEPSI = Init_MCP251XFD(&MCP251XFD_EPSI, &MCP2517FD_EPSI_Config);
+  if (ErrorEPSI != ERR_OK) {
+    return ErrorEPSI;
   }
 #define TIMESTAMP_TICK_us (25)
 #define TIMESTAMP_TICK(sysclk) (((sysclk) / 1E6) * TIMESTAMP_TICK_us)
-  ErrorExt1 = MCP251XFD_ConfigureTimeStamp(&MCP251XFD_EPSI, false,
+  ErrorEPSI = MCP251XFD_ConfigureTimeStamp(&MCP251XFD_EPSI, false,
                                            MCP251XFD_TS_CAN20_SOF_CANFD_SOF,
                                            TIMESTAMP_TICK(SYSCLK_EPSI), false);
-  if (ErrorExt1 != ERR_OK) {
-    return ErrorExt1;
+  if (ErrorEPSI != ERR_OK) {
+    return ErrorEPSI;
   }
-  /*
-  ErrorExt1 = MCP251XFD_ConfigureFIFOList(CANEXT1, &MCP2517FD_Ext1_FIFOlist[0],
-                                          MCP2517FD_EXT1_FIFO_COUNT);
-  if (ErrorExt1 != ERR_OK)
-    return ErrorExt1;
-  ErrorExt1 = MCP251XFD_ConfigureFilterList(
-      CANEXT1, MCP251XFD_D_NET_FILTER_DISABLE, &MCP2517FD_Ext1_FilterList[0],
-      MCP2517FD_EXT1_FILTER_COUNT);
-  if (ErrorExt1 != ERR_OK)
-    return ErrorExt1;
-  ErrorExt1 = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
-  */
-  return ErrorExt1;
+  ErrorEPSI = MCP251XFD_ConfigureFIFOList(
+      &MCP251XFD_EPSI, &MCP2517FD_EPSI_FIFOlist[0], MCP2517FD_EPSI_FIFO_COUNT);
+  if (ErrorEPSI != ERR_OK)
+    return ErrorEPSI;
+  // ErrorEPSI = MCP251XFD_ConfigureFilterList(
+  //     &MCP251XFD_EPSI, MCP251XFD_D_NET_FILTER_DISABLE,
+  //     &MCP2517FD_EPSI_FilterList[0], MCP2517FD_EPSI_FILTER_COUNT);
+  // if (ErrorEPSI != ERR_OK)
+  //   return ErrorEPSI;
+  ErrorEPSI = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
+  return ErrorEPSI;
+}
+//=============================================================================
+// Transmit a message to MCP251XFD device on EPSI
+//=============================================================================
+eERRORRESULT TransmitMessageToEPSI(void) {
+  eERRORRESULT ErrorEPSI = ERR_OK;
+  eMCP251XFD_FIFOstatus FIFOstatus = 0;
+  ErrorEPSI = MCP251XFD_GetFIFOStatus(&MCP251XFD_EPSI, MCP251XFD_FIFO2,
+                                      &FIFOstatus); // First get FIFO2 status
+  if (ErrorEPSI != ERR_OK)
+    return ErrorEPSI;
+  if ((FIFOstatus & MCP251XFD_TX_FIFO_NOT_FULL) > 0)
+  // Second check FIFO not full
+  {
+    uint8_t payload[4] = {0xde, 0xad, 0xbe, 0xef};
+    MCP251XFD_CANMessage TansmitMessage;
+    TansmitMessage.MessageID = 0xc0ffee;
+    TansmitMessage.MessageSEQ = 0;
+    TansmitMessage.ControlFlags = MCP251XFD_CAN20_FRAME;
+    TansmitMessage.DLC = 4;
+    TansmitMessage.PayloadData = payload;
+    //  Send message and flush
+    ErrorEPSI = MCP251XFD_TransmitMessageToFIFO(
+        &MCP251XFD_EPSI, &TansmitMessage, MCP251XFD_FIFO2, true);
+  }
+  // printf("ouais, c'est mort : %u\n", FIFOstatus);
+  return ErrorEPSI;
 }
