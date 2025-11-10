@@ -242,6 +242,7 @@ void app_main(void) {
   while (1) {
     ret = TransmitMessageToEPSI();
     ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
+    ret = ReceiveMessageFromEPSI();
     if (ret) {
       LED_toggle(&led_rouge);
     } else {

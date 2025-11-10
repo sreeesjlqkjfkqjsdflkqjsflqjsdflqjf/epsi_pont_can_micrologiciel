@@ -282,6 +282,25 @@ MCP251XFD_FIFO MCP2517FD_EPSI_FIFOlist[MCP2517FD_EPSI_FIFO_COUNT] = {
         .RAMInfos = &EPSI_FIFOs_RAMInfos[1],
     },
 };
+MCP251XFD_Filter MCP2517FD_EPSI_FilterList[MCP2517FD_EPSI_FILTER_COUNT] = {
+    {
+        .Filter = MCP251XFD_FILTER0,
+        .EnableFilter = true,
+        .Match = MCP251XFD_MATCH_ONLY_SID,
+        .AcceptanceID = MCP251XFD_ACCEPT_ALL_MESSAGES,
+        .AcceptanceMask = MCP251XFD_ACCEPT_ALL_MESSAGES,
+        .PointTo = MCP251XFD_FIFO1,
+    }, // 0x000..0x1FF
+       // { .Filter = MCP251XFD_FILTER1, .EnableFilter = true, .Match =
+    // MCP251XFD_MATCH_ONLY_SID, .AcceptanceID = 0x200, .AcceptanceMask = 0x600,
+    // .PointTo = MCP251XFD_FIFO2, }, // 0x200..0x3FF { .Filter =
+    // MCP251XFD_FILTER2, .EnableFilter = true, .Match =
+    // MCP251XFD_MATCH_ONLY_SID, .AcceptanceID = 0x400, .AcceptanceMask = 0x600,
+    // .PointTo = MCP251XFD_FIFO3, }, // 0x400..0x5FF { .Filter =
+    // MCP251XFD_FILTER3, .EnableFilter = true, .Match =
+    // MCP251XFD_MATCH_ONLY_SID, .AcceptanceID = 0x600, .AcceptanceMask = 0x600,
+    // .PointTo = MCP251XFD_FIFO4, }, // 0x600..0x7FF
+};
 //=============================================================================
 // Configure the MCP251863 device on EPSI
 //=============================================================================
@@ -305,16 +324,16 @@ eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void) {
       &MCP251XFD_EPSI, &MCP2517FD_EPSI_FIFOlist[0], MCP2517FD_EPSI_FIFO_COUNT);
   if (ErrorEPSI != ERR_OK)
     return ErrorEPSI;
-  // ErrorEPSI = MCP251XFD_ConfigureFilterList(
-  //     &MCP251XFD_EPSI, MCP251XFD_D_NET_FILTER_DISABLE,
-  //     &MCP2517FD_EPSI_FilterList[0], MCP2517FD_EPSI_FILTER_COUNT);
-  // if (ErrorEPSI != ERR_OK)
-  //   return ErrorEPSI;
+  ErrorEPSI = MCP251XFD_ConfigureFilterList(
+      &MCP251XFD_EPSI, MCP251XFD_D_NET_FILTER_DISABLE,
+      &MCP2517FD_EPSI_FilterList[0], MCP2517FD_EPSI_FILTER_COUNT);
+  if (ErrorEPSI != ERR_OK)
+    return ErrorEPSI;
   ErrorEPSI = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
   return ErrorEPSI;
 }
 //=============================================================================
-// Transmit a message to MCP251XFD device on EPSI
+// Transmit a hardcoded message on EPSI
 //=============================================================================
 eERRORRESULT TransmitMessageToEPSI(void) {
   eERRORRESULT ErrorEPSI = ERR_OK;
@@ -338,5 +357,41 @@ eERRORRESULT TransmitMessageToEPSI(void) {
         &MCP251XFD_EPSI, &TansmitMessage, MCP251XFD_FIFO2, true);
   }
   // printf("ouais, c'est mort : %u\n", FIFOstatus);
+  return ErrorEPSI;
+}
+//=============================================================================
+// Receive a message from EPSI
+//=============================================================================
+eERRORRESULT ReceiveMessageFromEPSI(void) {
+  eERRORRESULT ErrorEPSI = ERR_OK;
+  eMCP251XFD_FIFOstatus FIFOstatus = 0;
+  ErrorEPSI = MCP251XFD_GetFIFOStatus(&MCP251XFD_EPSI, MCP251XFD_FIFO1,
+                                      &FIFOstatus); // First get FIFO1 status
+  printf("FIFO_status : %u\n", FIFOstatus);
+  if (ErrorEPSI != ERR_OK)
+    return ErrorEPSI;
+  if ((FIFOstatus & MCP251XFD_RX_FIFO_NOT_EMPTY) >
+      0) // Second check FIFO not empty
+  {
+    uint32_t MessageTimeStamp = 0;
+    uint8_t RxPayloadData[64];
+    // In this example, the FIFO1 have 64 bytes of payload
+    MCP251XFD_CANMessage ReceivedMessage;
+    ReceivedMessage.PayloadData =
+        &RxPayloadData[0]; // Add receive payload data pointer to the message
+                           // structure
+    // that will be received
+    ErrorEPSI = MCP251XFD_ReceiveMessageFromFIFO(
+        &MCP251XFD_EPSI, &ReceivedMessage, MCP251XFD_PAYLOAD_64BYTE,
+        &MessageTimeStamp, MCP251XFD_FIFO1);
+    printf("MessageId ");
+    if (ErrorEPSI == ERR_OK) {
+      printf("MessageID : %lu\n MessageSEQ : %lu\n", ReceivedMessage.MessageID,
+             ReceivedMessage.MessageSEQ);
+      for (int i = 0; i < ReceivedMessage.DLC; i++) {
+        printf("PayloadData[%i] : %i\n", i, RxPayloadData[i]);
+      }
+    }
+  }
   return ErrorEPSI;
 }
