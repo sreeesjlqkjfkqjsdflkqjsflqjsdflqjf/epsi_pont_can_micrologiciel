@@ -6,49 +6,7 @@
     software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
     CONDITIONS OF ANY KIND, either express or implied.
 */
-
-#include <stdio.h>
-#include <sys/param.h>
-
-#include "MCP251XFD.h"
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_mac.h"
-
-#include "esp_netif.h"
-#include "esp_wifi.h"
-#include "freertos/idf_additions.h"
-#include "lwip/inet.h"
-#include "nvs_flash.h"
-
-#include "dns_server.h"
-#include "esp_http_server.h"
-
-#include "cJSON.h"
-#include "esp_chip_info.h"
-
-#include "battery_data.h"
-#include "led.h"
-#include "m41t81s.h"
-#include "mcp251863.h"
-
-#define EXAMPLE_ESP_WIFI_SSID CONFIG_ESP_WIFI_SSID
-#define EXAMPLE_ESP_WIFI_PASS CONFIG_ESP_WIFI_PASSWORD
-#define EXAMPLE_MAX_STA_CONN CONFIG_ESP_MAX_STA_CONN
-extern const char root_start[] asm("_binary_root_html_start");
-extern const char root_end[] asm("_binary_root_html_end");
-static const char *TAG = "example";
-struct tm now;
-struct battery_detailed_data bat_1 = {
-    .address = 0x1,
-    .state_of_health = 255,
-    .terminal_current = 30E3,
-    .internal_voltage = 60E3,
-    .remaining_capacity = 60E3,
-    .state_of_charge = 250,
-    .charging_voltage = 60E3,
-    .charging_current = 60E3,
-};
+#include "main.h"
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -175,7 +133,7 @@ static esp_err_t battery_info_get_handler(httpd_req_t *req) {
   char update_time[16];
   snprintf(update_time, 16, "%i:%i", now.tm_min, now.tm_sec);
   cJSON_AddStringToObject(root, "time", update_time);
-  battery_to_json(&bat_1, root);
+  bat_sum_to_json(&bat_2, root);
   const char *sys_info = cJSON_Print(root);
   httpd_resp_sendstr(req, sys_info);
   free((void *)sys_info);
@@ -228,9 +186,10 @@ void app_main(void) {
 
   LED_init(&led_verte);
   LED_init(&led_rouge);
-  // m41t81s_init();
-  // m41t81s_reset();
-
+  m41t81s_init();
+  m41t81s_reset();
+  uint8_t RxPayloadData[64];
+  MCP251XFD_CANMessage packet = {.PayloadData = RxPayloadData};
   vTaskDelay(200);
   int ret = ConfigureMCP251XFDDeviceOnCAN_EPSI();
   if (ret) {
@@ -239,17 +198,6 @@ void app_main(void) {
     LED_toggle(&led_verte);
   }
   ESP_LOGI(TAG, "ConfigureMCP251XFDDeviceOnCAN_EPSI return : %i\n", ret);
-  while (1) {
-    ret = TransmitMessageToEPSI();
-    ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
-    ret = ReceiveMessageFromEPSI();
-    if (ret) {
-      LED_toggle(&led_rouge);
-    } else {
-      LED_toggle(&led_verte);
-    }
-    vTaskDelay(100);
-  }
   /*
       Turn of warnings from HTTP server as redirecting traffic will yield
       lots of invalid requests
@@ -285,4 +233,16 @@ void app_main(void) {
   dns_server_config_t config = DNS_SERVER_CONFIG_SINGLE(
       "*" /* all A queries */, "WIFI_AP_DEF" /* softAP netif ID */);
   start_dns_server(&config);
+  while (1) {
+    // ret = TransmitMessageToEPSI();
+    // ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
+    ret = ReceiveMessageFromEPSI(&packet);
+    update_battstruct_from_raw_packet(&bat_2, &packet);
+    if (packet.MessageID) {
+      LED_toggle(&led_verte);
+    }
+    LED_toggle(&led_rouge);
+    vTaskDelay(10);
+    packet.MessageID = 0; // to avoid updating next loop if nothing received
+  }
 }

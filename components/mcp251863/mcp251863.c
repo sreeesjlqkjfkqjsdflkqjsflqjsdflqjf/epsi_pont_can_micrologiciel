@@ -222,7 +222,7 @@ MCP251XFD_Config MCP2517FD_EPSI_Config = {
     .ClkoPinConfig = MCP251XFD_CLKO_SOF,
     .SYSCLK_Result = &SYSCLK_EPSI,
     //--- CAN configuration ---
-    .NominalBitrate = 500000, // Nominal Bitrate to 250-500kbs
+    .NominalBitrate = 250E3, // Nominal Bitrate to 250-500kbs
     .DataBitrate = MCP251XFD_NO_CANFD,
     .BitTimeStats = &MCP2517FD_EPSI_BTStats,
     .Bandwidth = MCP251XFD_NO_DELAY,
@@ -286,7 +286,7 @@ MCP251XFD_Filter MCP2517FD_EPSI_FilterList[MCP2517FD_EPSI_FILTER_COUNT] = {
     {
         .Filter = MCP251XFD_FILTER0,
         .EnableFilter = true,
-        .Match = MCP251XFD_MATCH_ONLY_SID,
+        .Match = MCP251XFD_MATCH_ONLY_EID,
         .AcceptanceID = MCP251XFD_ACCEPT_ALL_MESSAGES,
         .AcceptanceMask = MCP251XFD_ACCEPT_ALL_MESSAGES,
         .PointTo = MCP251XFD_FIFO1,
@@ -329,6 +329,8 @@ eERRORRESULT ConfigureMCP251XFDDeviceOnCAN_EPSI(void) {
       &MCP2517FD_EPSI_FilterList[0], MCP2517FD_EPSI_FILTER_COUNT);
   if (ErrorEPSI != ERR_OK)
     return ErrorEPSI;
+
+  // ErrorEPSI = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
   ErrorEPSI = MCP251XFD_StartCAN20(&MCP251XFD_EPSI);
   return ErrorEPSI;
 }
@@ -362,7 +364,7 @@ eERRORRESULT TransmitMessageToEPSI(void) {
 //=============================================================================
 // Receive a message from EPSI
 //=============================================================================
-eERRORRESULT ReceiveMessageFromEPSI(void) {
+eERRORRESULT ReceiveMessageFromEPSI(MCP251XFD_CANMessage *ReceivedMessage) {
   eERRORRESULT ErrorEPSI = ERR_OK;
   eMCP251XFD_FIFOstatus FIFOstatus = 0;
   ErrorEPSI = MCP251XFD_GetFIFOStatus(&MCP251XFD_EPSI, MCP251XFD_FIFO1,
@@ -376,21 +378,22 @@ eERRORRESULT ReceiveMessageFromEPSI(void) {
     uint32_t MessageTimeStamp = 0;
     uint8_t RxPayloadData[64];
     // In this example, the FIFO1 have 64 bytes of payload
-    MCP251XFD_CANMessage ReceivedMessage;
-    ReceivedMessage.PayloadData =
-        &RxPayloadData[0]; // Add receive payload data pointer to the message
-                           // structure
+    // MCP251XFD_CANMessage ReceivedMessage;
+    // ReceivedMessage.PayloadData =
+    //     &RxPayloadData[0]; // Add receive payload data pointer to the message
+    // structure
     // that will be received
     ErrorEPSI = MCP251XFD_ReceiveMessageFromFIFO(
-        &MCP251XFD_EPSI, &ReceivedMessage, MCP251XFD_PAYLOAD_64BYTE,
+        &MCP251XFD_EPSI, ReceivedMessage, MCP251XFD_PAYLOAD_64BYTE,
         &MessageTimeStamp, MCP251XFD_FIFO1);
     printf("MessageId ");
     if (ErrorEPSI == ERR_OK) {
-      printf("MessageID : %lu\n MessageSEQ : %lu\n", ReceivedMessage.MessageID,
-             ReceivedMessage.MessageSEQ);
-      for (int i = 0; i < ReceivedMessage.DLC; i++) {
-        printf("PayloadData[%i] : %i\n", i, RxPayloadData[i]);
+      printf("MessageID : %lu\n MessageSEQ : %lu PayloadData : \n",
+             ReceivedMessage->MessageID, ReceivedMessage->MessageSEQ);
+      for (int i = 0; i < ReceivedMessage->DLC; i++) {
+        printf("%i, ", ReceivedMessage->PayloadData[i]);
       }
+      printf("\n");
     }
   }
   return ErrorEPSI;
