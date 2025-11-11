@@ -261,8 +261,8 @@ MCP251XFD_FIFO MCP2517FD_EPSI_FIFOlist[MCP2517FD_EPSI_FIFO_COUNT] = {
     },
     {
         .Name = MCP251XFD_FIFO1,
-        .Size = MCP251XFD_FIFO_4_MESSAGE_DEEP,
-        .Payload = MCP251XFD_PAYLOAD_64BYTE,
+        .Size = MCP251XFD_FIFO_8_MESSAGE_DEEP,
+        .Payload = MCP251XFD_PAYLOAD_8BYTE,
         .Direction = MCP251XFD_RECEIVE_FIFO,
         .ControlFlags = MCP251XFD_FIFO_ADD_TIMESTAMP_ON_RX,
         .InterruptFlags = MCP251XFD_FIFO_OVERFLOW_INT +
@@ -271,14 +271,14 @@ MCP251XFD_FIFO MCP2517FD_EPSI_FIFOlist[MCP2517FD_EPSI_FIFO_COUNT] = {
     }, // SID: 0x000..0x1FF ; No EID
     {
         .Name = MCP251XFD_FIFO2,
-        .Size = MCP251XFD_FIFO_4_MESSAGE_DEEP,
-        .Payload = MCP251XFD_PAYLOAD_64BYTE,
+        .Size = MCP251XFD_FIFO_8_MESSAGE_DEEP,
+        .Payload = MCP251XFD_PAYLOAD_8BYTE,
         .Direction = MCP251XFD_TRANSMIT_FIFO,
         .Attempts = MCP251XFD_THREE_ATTEMPTS,
         .Priority = MCP251XFD_MESSAGE_TX_PRIORITY16,
         .ControlFlags = MCP251XFD_FIFO_NO_RTR_RESPONSE,
-        .InterruptFlags = MCP251XFD_FIFO_TX_ATTEMPTS_EXHAUSTED_INT +
-                          MCP251XFD_FIFO_TRANSMIT_FIFO_NOT_FULL_INT,
+        .InterruptFlags = MCP251XFD_FIFO_NO_INTERRUPT_FLAGS,
+
         .RAMInfos = &EPSI_FIFOs_RAMInfos[1],
     },
 };
@@ -376,7 +376,6 @@ eERRORRESULT ReceiveMessageFromEPSI(MCP251XFD_CANMessage *ReceivedMessage) {
       0) // Second check FIFO not empty
   {
     uint32_t MessageTimeStamp = 0;
-    uint8_t RxPayloadData[64];
     // In this example, the FIFO1 have 64 bytes of payload
     // MCP251XFD_CANMessage ReceivedMessage;
     // ReceivedMessage.PayloadData =
@@ -384,9 +383,8 @@ eERRORRESULT ReceiveMessageFromEPSI(MCP251XFD_CANMessage *ReceivedMessage) {
     // structure
     // that will be received
     ErrorEPSI = MCP251XFD_ReceiveMessageFromFIFO(
-        &MCP251XFD_EPSI, ReceivedMessage, MCP251XFD_PAYLOAD_64BYTE,
+        &MCP251XFD_EPSI, ReceivedMessage, MCP251XFD_PAYLOAD_8BYTE,
         &MessageTimeStamp, MCP251XFD_FIFO1);
-    printf("MessageId ");
     if (ErrorEPSI == ERR_OK) {
       printf("MessageID : %lu\n MessageSEQ : %lu PayloadData : \n",
              ReceivedMessage->MessageID, ReceivedMessage->MessageSEQ);

@@ -56,61 +56,66 @@
       <td>battery_temperature</td>
       <td id="battery_temperature">-</td>
     </tr>
-    <!-- <tr> -->
-    <!--   <td>state_of_health</td> -->
-    <!--   <td id="state_of_health">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>terminal_current</td> -->
-    <!--   <td id="terminal_current">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>internal_voltage</td> -->
-    <!--   <td id="internal_voltage">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>remaining_capacity</td> -->
-    <!--   <td id="remaining_capacity">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>state_of_charge</td> -->
-    <!--   <td id="state_of_charge">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>charging_voltage</td> -->
-    <!--   <td id="charging_voltage">-</td> -->
-    <!-- </tr> -->
-    <!-- <tr> -->
-    <!--   <td>charging_current</td> -->
-    <!--   <td id="charging_current">-</td> -->
-    <!-- </tr> -->
   </table>
 
   <script>
-    const jsonUrl = "/api/battery_info"; // 🔗 Replace with your JSON file or API endpoint
+    const jsonUrl = "/api/battery_info"; // 🔗 Remplacez par votre endpoint API
+
+    // --- COEFFICIENTS DE TRANSFORMATION (Résolution et Offset) ---
+    const COEFFICIENTS = {
+      // SPN: Battery Voltage (0.05V/bit, Offset 0)
+      "battery_voltage": {coeff: 0.05, offset: 0, precision: 2},
+      // SPN: Battery Current (0.05A/bit, Offset -1600)
+      "battery_current": {coeff: 0.05, offset: -1600, precision: 2},
+      // SPN: Battery Internal Temperature (1oC/bit, Offset -55oC)
+      "battery_temperature": {coeff: 1, offset: -55, precision: 1},
+    };
+    // -------------------------------------------------------------
 
     async function fetchAndUpdate() {
       try {
-        const response = await fetch(jsonUrl + '?t=' + Date.now()); // avoid cache
+        const response = await fetch(jsonUrl + '?t=' + Date.now()); // Évite le cache
         if (!response.ok) throw new Error("Network response was not ok");
         const data = await response.json();
 
-        // Update table cells by matching keys
+        // Mise à jour des cellules du tableau
         for (const key in data) {
           const cell = document.getElementById(key);
+
           if (cell) {
-            cell.textContent = data[key];
+            let displayValue = data[key];
+
+            // Récupère les règles de transformation
+            const rules = COEFFICIENTS[key];
+
+            if (rules && !isNaN(displayValue)) {
+              // Appliquer la formule de transformation : (Entier * Coeff) + Offset
+              let floatValue = (displayValue * rules.coeff) + rules.offset;
+
+              // Formater le flottant avec la précision spécifiée
+              displayValue = floatValue.toFixed(rules.precision);
+            }
+
+            // Mettre à jour la cellule
+            cell.textContent = displayValue;
           }
         }
-        // console.log("Data updated at", new Date().toLocaleTimeString());
+        // Optionnel: Mettre à jour l'heure de la dernière mise à jour
+        document.getElementById("time").textContent = new Date().toLocaleTimeString('fr-FR');
+
       } catch (error) {
         console.error("Fetch error:", error);
+        // Optionnel: Indiquer une erreur dans les cellules
+        for (const key in COEFFICIENTS) {
+          const cell = document.getElementById(key);
+          if (cell) cell.textContent = "Erreur de données";
+        }
       }
     }
 
-    // Fetch immediately, then every 60 seconds
+    // Première exécution immédiate, puis toutes les 60 secondes
     fetchAndUpdate();
-    setInterval(fetchAndUpdate, 60_000);
+    setInterval(fetchAndUpdate, 60000); // 60 000 ms = 60 secondes
   </script>
 </body>
 

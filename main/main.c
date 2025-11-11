@@ -237,12 +237,13 @@ void app_main(void) {
     // ret = TransmitMessageToEPSI();
     // ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
     ret = ReceiveMessageFromEPSI(&packet);
-    update_battstruct_from_raw_packet(&bat_2, &packet);
     if (packet.MessageID) {
-      LED_toggle(&led_verte);
+      update_battstruct_from_raw_packet(&bat_2, &packet);
+      LED_on(&led_verte);
     }
+    vTaskDelay(20);
+    LED_off(&led_verte);
     LED_toggle(&led_rouge);
-    vTaskDelay(10);
     packet.MessageID = 0; // to avoid updating next loop if nothing received
   }
 }
