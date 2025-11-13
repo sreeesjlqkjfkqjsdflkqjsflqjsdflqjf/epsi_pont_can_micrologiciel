@@ -1,16 +1,17 @@
 #include "m41t81s.h"
 #include "esp_err.h"
+#include <stdint.h>
 #include <stdio.h>
 
 static i2c_master_bus_handle_t bus_handle;
 static i2c_master_dev_handle_t rtc_handle;
 struct tm flash_time = {.tm_sec = 0,
-                        .tm_min = 10,
-                        .tm_hour = 23,
-                        .tm_mday = 1,
-                        .tm_mon = 11,
-                        .tm_year = 2025,
-                        .tm_wday = 7};
+                        .tm_min = 1,
+                        .tm_hour = 2,
+                        .tm_mday = 3,
+                        .tm_mon = 4,
+                        .tm_year = 5,
+                        .tm_wday = 6};
 static uint8_t m41t81s_getSeconds();
 static uint8_t m41t81s_getMinutes();
 static uint8_t m41t81s_getHours();
@@ -55,28 +56,54 @@ static esp_err_t rtc_register_read(uint8_t reg_addr, uint8_t *data,
                                      I2C_MASTER_TIMEOUT_MS);
 }
 
-static esp_err_t rtc_register_write_byte(i2c_master_dev_handle_t dev_handle,
+static esp_err_t rtc_register_write_byte(i2c_master_dev_handle_t rtc_handle,
                                          uint8_t reg_addr, uint8_t data) {
   uint8_t write_buf[2] = {reg_addr, data};
-  return i2c_master_transmit(dev_handle, write_buf, sizeof(write_buf),
+  return i2c_master_transmit(rtc_handle, write_buf, sizeof(write_buf),
+                             I2C_MASTER_TIMEOUT_MS);
+}
+static esp_err_t rtc_write_bytes(uint8_t *reg_data) {
+  return i2c_master_transmit(rtc_handle, reg_data, sizeof(reg_data),
                              I2C_MASTER_TIMEOUT_MS);
 }
 void m41t81s_reset() {
-  rtc_register_write_byte(rtc_handle, 0x0C, 0);
-  rtc_register_write_byte(rtc_handle, rtc_seconds_reg, 0);
+  // rtc_register_write_byte(rtc_handle, 0x0C, 0);
+  // rtc_register_write_byte(rtc_handle, rtc_seconds_reg, 0);
+  // rtc_register_write_byte(rtc_handle, rtc_minutes_reg, 0);
+  // rtc_register_write_byte(rtc_handle, rtc_hours_reg, 0);
+  // rtc_register_write_byte(rtc_handle, rtc_dow_reg, 0b1);
+  // rtc_register_write_byte(rtc_handle, rtc_date_reg, 0b00010011);
+  // rtc_register_write_byte(rtc_handle, rtc_month_reg, 0b00010010);
+  // rtc_register_write_byte(rtc_handle, rtc_year_reg, 0b00010011);
+  m41t81s_setTime(&flash_time);
 }
 
-void m41t81s_getTime(struct tm *now) {
-
-  now->tm_sec = m41t81s_getSeconds();
-  now->tm_min = m41t81s_getMinutes(); /* Minutes. [0-59]      */
-  now->tm_hour = m41t81s_getHours();
-  now->tm_mday = m41t81s_getDate();
-  now->tm_mon = m41t81s_getMonth();
-  now->tm_year = m41t81s_getYear();
-  now->tm_wday = m41t81s_getDayOfWeek();
-  now->tm_yday = m41t81s_getYear();
+esp_err_t m41t81s_getTime(struct tm *now) {
+  // bonne chance avec les valeurs magiques :)
+  uint8_t time_registers[7];
+  esp_err_t ret = rtc_register_read(rtc_seconds_reg, time_registers, 7);
+  now->tm_sec = bcdToDec(time_registers[0] & 0x7F);
+  now->tm_min = bcdToDec(time_registers[1] & 0x7F); /* Minutes. [0-59]      */
+  now->tm_hour = bcdToDec(time_registers[2] & 0x3F);
+  now->tm_wday = bcdToDec(time_registers[3] & 0x07);
+  now->tm_mday = bcdToDec(time_registers[4] & 0x3F);
+  now->tm_mon = bcdToDec(time_registers[5] & 0x1F);
+  now->tm_year = bcdToDec(time_registers[6]);
+  return ret;
 }
+
+esp_err_t m41t81s_setTime(struct tm *now) {
+
+  uint8_t time_registers[8] = {rtc_month_reg,
+                               decToBCD(now->tm_sec),
+                               decToBCD(now->tm_min),
+                               decToBCD(now->tm_hour),
+                               decToBCD(now->tm_wday) & 0x07,
+                               decToBCD(now->tm_mday) & 0x3F,
+                               decToBCD(now->tm_mon) & 0x1F,
+                               decToBCD(now->tm_year)};
+  return rtc_write_bytes(time_registers);
+};
 // disabled because likely useless
 // static uint8_t m41t81s_getPartSeconds() {
 //   uint8_t psecs;

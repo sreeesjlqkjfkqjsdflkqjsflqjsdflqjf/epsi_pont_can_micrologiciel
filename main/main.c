@@ -234,6 +234,9 @@ void app_main(void) {
       "*" /* all A queries */, "WIFI_AP_DEF" /* softAP netif ID */);
   start_dns_server(&config);
   while (1) {
+    m41t81s_getTime(&now);
+    printf("%i:%i:%i, %i, %i of %i\n", now.tm_hour, now.tm_min, now.tm_sec,
+           now.tm_mday, now.tm_mon, now.tm_year);
     // ret = TransmitMessageToEPSI();
     // ESP_LOGI(TAG, "CAN message sent, ret : %i\n", ret);
     ret = ReceiveMessageFromEPSI(&packet);
@@ -241,7 +244,7 @@ void app_main(void) {
       update_battstruct_from_raw_packet(&bat_2, &packet);
       LED_on(&led_verte);
     }
-    vTaskDelay(20);
+    vTaskDelay(100);
     LED_off(&led_verte);
     LED_toggle(&led_rouge);
     packet.MessageID = 0; // to avoid updating next loop if nothing received

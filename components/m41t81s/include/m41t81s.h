@@ -1,4 +1,5 @@
 #include "driver/i2c_master.h"
+#include "esp_err.h"
 #include <stdint.h>
 #include <time.h>
 // i2c
@@ -24,5 +25,5 @@ extern struct tm flash_time;
 
 void m41t81s_init();
 void m41t81s_reset();
-void m41t81s_getTime(struct tm *now);
-void m41t81s_setTime(struct tm *now);
+esp_err_t m41t81s_getTime(struct tm *now);
+esp_err_t m41t81s_setTime(struct tm *now);
